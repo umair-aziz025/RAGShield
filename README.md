@@ -28,6 +28,9 @@ RAGShield helps developers, AppSec teams, and AI red-teamers test chatbots, RAG 
 ## ✨ Features
 
 - 🧪 **Expanded Prompt Library**: 22 adversarial prompts mapped to OWASP LLM risks.
+- 📤 **Custom Payload Uploads**: Add your own JSON payload packs directly inside the Payload Library.
+- 📑 **Paged Payload Lists**: Browse prompts through numbered pages instead of one long messy list.
+- 🧭 **Tabbed Workspace**: Each navigation tab renders only its relevant tool surface.
 - 🔁 **Prompt Carousel**: Previous, next, shuffle, and direct prompt-number controls.
 - 🔢 **Range Campaigns**: Choose a start prompt and run count to test a numbered prompt range.
 - ⚡ **Live Endpoint Testing**: OpenAI Responses, Claude Messages, Gemini generateContent, and custom proxy support.
@@ -128,6 +131,20 @@ Create or edit `.ragshieldrc.json`:
 3. 🔁 Use previous, next, or shuffle to inspect prompts.
 4. 🔢 Set **Start No.** and **Run Count** for the campaign range.
 5. ▶️ Run the campaign and review blocked, vulnerable, and error states.
+
+Custom payload JSON can be uploaded as either an array or a wrapped object:
+
+```json
+{
+  "payloads": [
+    {
+      "category": "Custom Prompt Injection",
+      "owasp": "LLM01",
+      "payload": "Place your custom model test prompt here."
+    }
+  ]
+}
+```
 
 ## 🗺️ Roadmap
 

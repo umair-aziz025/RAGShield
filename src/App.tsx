@@ -39,6 +39,7 @@ type Severity = "critical" | "high" | "medium" | "low";
 type ScanProfile = "rag" | "agent" | "chatbot";
 type Provider = "openai" | "anthropic" | "gemini" | "custom";
 type AttackStatus = "blocked" | "vulnerable" | "error";
+type ViewId = "overview" | "corpus" | "workspace" | "findings" | "live-lab" | "payloads" | "ci" | "report";
 
 type ScanInputs = {
   systemPrompt: string;
@@ -79,6 +80,7 @@ type Payload = {
   category: string;
   owasp: string;
   payload: string;
+  source?: "built-in" | "uploaded";
 };
 
 type CorpusDocument = {
@@ -472,7 +474,21 @@ const fieldMeta: Array<{
   },
 ];
 
+const viewItems: Array<{ id: ViewId; label: string }> = [
+  { id: "overview", label: "Overview" },
+  { id: "corpus", label: "Corpus" },
+  { id: "workspace", label: "Workspace" },
+  { id: "findings", label: "Findings" },
+  { id: "live-lab", label: "Live Lab" },
+  { id: "payloads", label: "Payloads" },
+  { id: "ci", label: "CI/CD" },
+  { id: "report", label: "Report" },
+];
+
+const payloadsPerPage = 6;
+
 function App() {
+  const [activeView, setActiveView] = useState<ViewId>("overview");
   const [inputs, setInputs] = useState<ScanInputs>(defaultInputs);
   const [options, setOptions] = useState<ScanOptions>({
     strictMode: true,
@@ -498,6 +514,8 @@ function App() {
   const [campaignStart, setCampaignStart] = useState(1);
   const [campaignCount, setCampaignCount] = useState(8);
   const [campaignProgress, setCampaignProgress] = useState({ current: 0, total: 0 });
+  const [payloadLibrary, setPayloadLibrary] = useState<Payload[]>(payloads);
+  const [payloadPage, setPayloadPage] = useState(1);
   const [ciPolicy, setCiPolicy] = useState<CiPolicy>({
     failOnCritical: true,
     maxRiskScore: 35,
@@ -537,14 +555,17 @@ function App() {
   const risk = riskLabel(score, hasScanned);
   const corpusFindings = corpusDocs.reduce((total, doc) => total + doc.findings.length, 0);
   const liveFailures = liveAttacks.filter((attack) => attack.status === "vulnerable").length;
-  const selectedPayload = payloads[promptCursor] ?? payloads[0];
+  const selectedPayload = payloadLibrary[promptCursor] ?? payloadLibrary[0] ?? payloads[0];
   const campaignPayloads = useMemo(
-    () => buildPayloadQueue(campaignStart, campaignCount),
-    [campaignCount, campaignStart],
+    () => buildPayloadQueue(payloadLibrary, campaignStart, campaignCount),
+    [campaignCount, campaignStart, payloadLibrary],
   );
   const campaignEnd = campaignPayloads.length
-    ? ((campaignStart - 1 + campaignPayloads.length - 1) % payloads.length) + 1
+    ? ((campaignStart - 1 + campaignPayloads.length - 1) % payloadLibrary.length) + 1
     : campaignStart;
+  const payloadPageCount = Math.max(1, Math.ceil(payloadLibrary.length / payloadsPerPage));
+  const safePayloadPage = Math.min(payloadPage, payloadPageCount);
+  const pagedPayloads = payloadLibrary.slice((safePayloadPage - 1) * payloadsPerPage, safePayloadPage * payloadsPerPage);
 
   function updateInput(key: keyof ScanInputs, value: string) {
     setInputs((current) => ({ ...current, [key]: value }));
@@ -569,11 +590,11 @@ function App() {
   }
 
   function setPayloadByIndex(nextIndex: number, shouldLoad = true) {
-    const normalized = wrapIndex(nextIndex, payloads.length);
+    const normalized = wrapIndex(nextIndex, payloadLibrary.length);
     setPromptCursor(normalized);
     if (shouldLoad) {
-      updateInput("userPrompt", payloads[normalized].payload);
-      showToast(`Prompt ${normalized + 1}/${payloads.length} loaded.`);
+      updateInput("userPrompt", payloadLibrary[normalized].payload);
+      showToast(`Prompt ${normalized + 1}/${payloadLibrary.length} loaded.`);
     }
   }
 
@@ -583,7 +604,9 @@ function App() {
 
   function shufflePayload() {
     const nextIndex =
-      payloads.length > 1 ? wrapIndex(promptCursor + 1 + Math.floor(Math.random() * (payloads.length - 1)), payloads.length) : 0;
+      payloadLibrary.length > 1
+        ? wrapIndex(promptCursor + 1 + Math.floor(Math.random() * (payloadLibrary.length - 1)), payloadLibrary.length)
+        : 0;
     setPayloadByIndex(nextIndex);
   }
 
@@ -614,9 +637,34 @@ function App() {
     showToast(`${doc.name} loaded into the RAG context.`);
   }
 
+  async function uploadPayloadFile(file: File | null) {
+    if (!file) return;
+    try {
+      const parsed = parsePayloadFile(await file.text());
+      const nextTotal = payloadLibrary.length + parsed.length;
+      setPayloadLibrary((current) => [...current, ...parsed]);
+      setPromptCursor(Math.min(promptCursor, nextTotal - 1));
+      setCampaignStart(1);
+      setCampaignCount(Math.min(8, nextTotal));
+      setPayloadPage(Math.ceil(nextTotal / payloadsPerPage));
+      showToast(`${parsed.length} uploaded payload${parsed.length === 1 ? "" : "s"} added.`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : "Could not read payload JSON.");
+    }
+  }
+
+  function resetPayloadLibrary() {
+    setPayloadLibrary(payloads);
+    setPromptCursor(0);
+    setPayloadPage(1);
+    setCampaignStart(1);
+    setCampaignCount(Math.min(8, payloads.length));
+    showToast("Payload library reset to built-in prompts.");
+  }
+
   async function runLiveAttack() {
     if (isAttacking) return;
-    const selectedPayloads = buildPayloadQueue(campaignStart, campaignCount);
+    const selectedPayloads = buildPayloadQueue(payloadLibrary, campaignStart, campaignCount);
     if (selectedPayloads.length === 0) {
       showToast("Select at least one prompt for the campaign.");
       return;
@@ -689,7 +737,7 @@ function App() {
 
   function copyPayloads() {
     copyText(
-      payloads.map((item) => `${item.category} (${item.owasp})\n${item.payload}`).join("\n\n"),
+      payloadLibrary.map((item) => `${item.category} (${item.owasp})\n${item.payload}`).join("\n\n"),
       "Payload library copied.",
     );
   }
@@ -747,12 +795,14 @@ function App() {
   return (
     <div className="app-shell">
       <AnimatedBackdrop />
-      <Sidebar />
+      <Sidebar activeView={activeView} onViewChange={setActiveView} />
 
       <main className="main-content">
-        <TopBar />
+        <TopBar activeView={activeView} onViewChange={setActiveView} />
 
-        <motion.header
+        {activeView === "overview" && (
+        <>
+          <motion.header
           className="hero"
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
@@ -788,9 +838,9 @@ function App() {
               Run Scan
             </button>
           </div>
-        </motion.header>
+          </motion.header>
 
-        <section className="status-strip" aria-label="Scanner coverage">
+          <section className="status-strip" aria-label="Scanner coverage">
           {coverageItems.map(({ code, label, icon: Icon }) => (
             <motion.div
               className="coverage-tile"
@@ -803,9 +853,12 @@ function App() {
               <strong>{label}</strong>
             </motion.div>
           ))}
-        </section>
+          </section>
+        </>
+        )}
 
-        <section id="corpus" className="section-card corpus-section">
+        {activeView === "corpus" && (
+        <section className="section-card corpus-section">
           <SectionHeader
             eyebrow="Corpus intelligence"
             title="RAG Document Scanner"
@@ -861,8 +914,11 @@ function App() {
             </div>
           </div>
         </section>
+        )}
 
-        <section id="workspace" className="workspace-grid">
+        {activeView === "workspace" && (
+        <>
+        <section className="workspace-grid">
           {fieldMeta.map((field, index) => {
             const Icon = field.icon;
             return (
@@ -933,8 +989,12 @@ function App() {
             </select>
           </label>
         </section>
+        </>
+        )}
 
-        <section id="findings" className="results-layout">
+        {activeView === "findings" && (
+        <>
+        <section className="results-layout">
           <ScoreCard score={score} risk={risk} />
           <div className="metrics-grid">
             <Metric label="Critical" value={counts.critical} severity="critical" />
@@ -972,8 +1032,11 @@ function App() {
             )}
           </AnimatePresence>
         </section>
+        </>
+        )}
 
-        <section id="live-lab" className="section-card live-lab">
+        {activeView === "live-lab" && (
+        <section className="section-card live-lab">
           <SectionHeader
             eyebrow="Live adversarial testing"
             title="Endpoint Attack Lab"
@@ -1041,7 +1104,7 @@ function App() {
           <div className="prompt-console">
             <motion.div className="prompt-stage" layout>
               <div className="prompt-stage-top">
-                <span className="prompt-index">Prompt {promptCursor + 1} / {payloads.length}</span>
+                <span className="prompt-index">Prompt {promptCursor + 1} / {payloadLibrary.length}</span>
                 <div className="tag-row compact">
                   <span>{selectedPayload.owasp}</span>
                   <span>{selectedPayload.category}</span>
@@ -1078,7 +1141,7 @@ function App() {
                   <input
                     type="number"
                     min={1}
-                    max={payloads.length}
+                    max={payloadLibrary.length}
                     value={promptCursor + 1}
                     onChange={(event) => setPayloadByIndex(Number(event.target.value || 1) - 1)}
                   />
@@ -1088,9 +1151,9 @@ function App() {
                   <input
                     type="number"
                     min={1}
-                    max={payloads.length}
+                    max={payloadLibrary.length}
                     value={campaignStart}
-                    onChange={(event) => setCampaignStart(clampNumber(Number(event.target.value || 1), 1, payloads.length))}
+                    onChange={(event) => setCampaignStart(clampNumber(Number(event.target.value || 1), 1, payloadLibrary.length))}
                   />
                 </label>
                 <label className="field-control">
@@ -1098,9 +1161,9 @@ function App() {
                   <input
                     type="number"
                     min={1}
-                    max={payloads.length}
+                    max={payloadLibrary.length}
                     value={campaignCount}
-                    onChange={(event) => setCampaignCount(clampNumber(Number(event.target.value || 1), 1, payloads.length))}
+                    onChange={(event) => setCampaignCount(clampNumber(Number(event.target.value || 1), 1, payloadLibrary.length))}
                   />
                 </label>
               </div>
@@ -1124,24 +1187,61 @@ function App() {
             )}
           </div>
         </section>
+        )}
 
-        <section id="payloads" className="section-card">
+        {activeView === "payloads" && (
+        <section className="section-card">
           <SectionHeader
             eyebrow="Attack simulation"
             title="Payload Library"
             icon={Radar}
             action={
-              <button className="button secondary" type="button" onClick={copyPayloads}>
-                <Clipboard size={17} />
-                Copy Payloads
-              </button>
+              <div className="section-actions">
+                <label className="button primary file-button">
+                  <UploadCloud size={17} />
+                  Upload JSON
+                  <input
+                    type="file"
+                    accept=".json,application/json"
+                    onChange={(event) => void uploadPayloadFile(event.target.files?.[0] ?? null)}
+                  />
+                </label>
+                <button className="button secondary" type="button" onClick={copyPayloads}>
+                  <Clipboard size={17} />
+                  Copy Payloads
+                </button>
+                <button className="button secondary" type="button" onClick={resetPayloadLibrary}>
+                  <RotateCw size={17} />
+                  Reset
+                </button>
+              </div>
             }
           />
+          <div className="payload-toolbar">
+            <div>
+              <strong>{payloadLibrary.length} prompts</strong>
+              <span>Upload JSON as an array or as {`{ "payloads": [...] }`} with category, owasp, and payload fields.</span>
+            </div>
+            <div className="payload-pages" aria-label="Payload pages">
+              {Array.from({ length: payloadPageCount }, (_, index) => (
+                <button
+                  className={safePayloadPage === index + 1 ? "active" : ""}
+                  key={index + 1}
+                  type="button"
+                  onClick={() => setPayloadPage(index + 1)}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="payload-grid">
-            {payloads.map((payload, index) => (
+            {pagedPayloads.map((payload, index) => {
+              const libraryIndex = (safePayloadPage - 1) * payloadsPerPage + index;
+              return (
               <motion.article
                 className="payload-card"
-                key={payload.category}
+                key={`${payload.category}-${payload.payload}`}
                 initial={{ opacity: 0, y: 12 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, amount: 0.25 }}
@@ -1149,18 +1249,21 @@ function App() {
               >
                 <div>
                   <h3>{payload.category}</h3>
-                  <span>{payload.owasp}</span>
+                  <span>{payload.owasp} / {payload.source === "uploaded" ? "Uploaded" : "Built-in"}</span>
                 </div>
                 <code>{payload.payload}</code>
-                <button className="button mini" type="button" onClick={() => loadPayload(payload.payload)}>
+                <button className="button mini" type="button" onClick={() => setPayloadByIndex(libraryIndex)}>
                   Use Payload
                 </button>
               </motion.article>
-            ))}
+              );
+            })}
           </div>
         </section>
+        )}
 
-        <section id="ci" className="section-card ci-section">
+        {activeView === "ci" && (
+        <section className="section-card ci-section">
           <SectionHeader
             eyebrow="Build-breaking guardrails"
             title="CI/CD Security Gate"
@@ -1215,8 +1318,10 @@ function App() {
           </div>
           <pre className="report-output ci-preview">{buildGithubAction(ciPolicy)}</pre>
         </section>
+        )}
 
-        <section id="report" className="section-card">
+        {activeView === "report" && (
+        <section className="section-card">
           <SectionHeader
             eyebrow="Evidence-ready output"
             title="Security Report"
@@ -1236,8 +1341,9 @@ function App() {
           />
           <pre className="report-output">{report}</pre>
         </section>
+        )}
 
-        <Footer />
+        <Footer onViewChange={setActiveView} />
       </main>
 
       <AnimatePresence>
@@ -1280,7 +1386,13 @@ function AnimatedBackdrop() {
   );
 }
 
-function TopBar() {
+function TopBar({
+  activeView,
+  onViewChange,
+}: {
+  activeView: ViewId;
+  onViewChange: (view: ViewId) => void;
+}) {
   return (
     <motion.header
       className="topbar"
@@ -1296,15 +1408,28 @@ function TopBar() {
         </div>
       </div>
       <div className="topbar-links" aria-label="Primary workspace links">
-        <a href="#live-lab">Live Lab</a>
-        <a href="#payloads">Prompts</a>
-        <a href="#report">Report</a>
+        {(["live-lab", "payloads", "report"] as ViewId[]).map((view) => (
+          <button
+            className={activeView === view ? "active" : ""}
+            key={view}
+            type="button"
+            onClick={() => onViewChange(view)}
+          >
+            {view === "live-lab" ? "Live Lab" : view === "payloads" ? "Prompts" : "Report"}
+          </button>
+        ))}
       </div>
     </motion.header>
   );
 }
 
-function Sidebar() {
+function Sidebar({
+  activeView,
+  onViewChange,
+}: {
+  activeView: ViewId;
+  onViewChange: (view: ViewId) => void;
+}) {
   return (
     <aside className="sidebar">
       <div className="brand">
@@ -1322,13 +1447,16 @@ function Sidebar() {
       </div>
 
       <nav className="nav-stack" aria-label="Workspace navigation">
-        <a href="#corpus">Corpus</a>
-        <a href="#workspace">Workspace</a>
-        <a href="#findings">Findings</a>
-        <a href="#live-lab">Live Lab</a>
-        <a href="#payloads">Payloads</a>
-        <a href="#ci">CI/CD</a>
-        <a href="#report">Report</a>
+        {viewItems.map((item) => (
+          <button
+            className={activeView === item.id ? "active" : ""}
+            key={item.id}
+            type="button"
+            onClick={() => onViewChange(item.id)}
+          >
+            {item.label}
+          </button>
+        ))}
       </nav>
 
       <div className="sidebar-card">
@@ -1343,7 +1471,7 @@ function Sidebar() {
   );
 }
 
-function Footer() {
+function Footer({ onViewChange }: { onViewChange: (view: ViewId) => void }) {
   return (
     <footer className="app-footer">
       <div>
@@ -1351,8 +1479,8 @@ function Footer() {
         <span>Defensive AI security testing for LLM and RAG releases.</span>
       </div>
       <div className="footer-links">
-        <a href="#workspace">Workspace</a>
-        <a href="#ci">CI Gate</a>
+        <button type="button" onClick={() => onViewChange("workspace")}>Workspace</button>
+        <button type="button" onClick={() => onViewChange("ci")}>CI Gate</button>
         <a href="https://github.com/" target="_blank" rel="noreferrer">
           <GitBranch size={15} />
           Repository
@@ -1925,11 +2053,46 @@ jobs:
 `;
 }
 
-function buildPayloadQueue(startNumber: number, count: number) {
-  if (payloads.length === 0) return [];
-  const startIndex = clampNumber(startNumber, 1, payloads.length) - 1;
-  const safeCount = clampNumber(count, 1, payloads.length);
-  return Array.from({ length: safeCount }, (_, index) => payloads[wrapIndex(startIndex + index, payloads.length)]);
+function parsePayloadFile(value: string): Payload[] {
+  const parsed = JSON.parse(value) as unknown;
+  const rawPayloads =
+    Array.isArray(parsed)
+      ? parsed
+      : typeof parsed === "object" && parsed && "payloads" in parsed && Array.isArray((parsed as { payloads: unknown }).payloads)
+        ? (parsed as { payloads: unknown[] }).payloads
+        : null;
+
+  if (!rawPayloads) {
+    throw new Error('JSON must be an array or an object with a "payloads" array.');
+  }
+
+  const normalized = rawPayloads
+    .map((item, index) => {
+      if (!item || typeof item !== "object") return null;
+      const record = item as Record<string, unknown>;
+      const payload = typeof record.payload === "string" ? record.payload.trim() : "";
+      if (!payload) return null;
+      return {
+        category: typeof record.category === "string" && record.category.trim() ? record.category.trim() : `Custom Payload ${index + 1}`,
+        owasp: typeof record.owasp === "string" && record.owasp.trim() ? record.owasp.trim() : "CUSTOM",
+        payload,
+        source: "uploaded" as const,
+      };
+    })
+    .filter(Boolean) as Payload[];
+
+  if (normalized.length === 0) {
+    throw new Error("No valid payload entries found in JSON.");
+  }
+
+  return normalized;
+}
+
+function buildPayloadQueue(payloadList: Payload[], startNumber: number, count: number) {
+  if (payloadList.length === 0) return [];
+  const startIndex = clampNumber(startNumber, 1, payloadList.length) - 1;
+  const safeCount = clampNumber(count, 1, payloadList.length);
+  return Array.from({ length: safeCount }, (_, index) => payloadList[wrapIndex(startIndex + index, payloadList.length)]);
 }
 
 function clampNumber(value: number, min: number, max: number) {

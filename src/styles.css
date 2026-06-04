@@ -171,17 +171,18 @@ button {
   margin-bottom: 28px;
 }
 
-.nav-stack a {
+.nav-stack button {
   padding: 11px 12px;
   border: 1px solid transparent;
   border-radius: var(--radius);
+  background: transparent;
   color: rgba(248, 251, 255, 0.76);
-  text-decoration: none;
+  text-align: left;
   font-weight: 700;
 }
 
-.nav-stack a:hover,
-.nav-stack a:first-child {
+.nav-stack button:hover,
+.nav-stack button.active {
   border-color: rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.08);
   color: white;
@@ -283,7 +284,9 @@ button {
 }
 
 .topbar-links a,
-.footer-links a {
+.topbar-links button,
+.footer-links a,
+.footer-links button {
   display: inline-flex;
   gap: 6px;
   align-items: center;
@@ -296,6 +299,14 @@ button {
   text-decoration: none;
   font-size: 0.82rem;
   font-weight: 850;
+}
+
+.topbar-links button.active,
+.topbar-links button:hover,
+.footer-links button:hover {
+  border-color: rgba(45, 212, 191, 0.32);
+  background: rgba(45, 212, 191, 0.1);
+  color: var(--ink);
 }
 
 .hero,
@@ -1244,6 +1255,57 @@ textarea:focus {
   gap: 12px;
 }
 
+.payload-toolbar {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(8, 13, 22, 0.58);
+}
+
+.payload-toolbar strong {
+  display: block;
+  color: var(--ink);
+}
+
+.payload-toolbar span {
+  display: block;
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.payload-pages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  justify-content: flex-end;
+}
+
+.payload-pages button {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.72);
+  color: var(--soft);
+  font-weight: 900;
+}
+
+.payload-pages button.active,
+.payload-pages button:hover {
+  border-color: rgba(45, 212, 191, 0.42);
+  background: rgba(45, 212, 191, 0.14);
+  color: var(--ink);
+}
+
 .payload-card {
   display: grid;
   gap: 10px;
@@ -1372,6 +1434,7 @@ textarea:focus {
 
   .hero,
   .section-head,
+  .payload-toolbar,
   .topbar,
   .app-footer {
     align-items: flex-start;
@@ -1385,6 +1448,7 @@ textarea:focus {
 
   .hero-actions,
   .section-actions,
+  .payload-pages,
   .topbar-links,
   .footer-links {
     width: 100%;
