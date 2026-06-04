@@ -1,12 +1,14 @@
 # 🛡️ RAGShield
 
-![Build](https://img.shields.io/badge/build-passing-34d399?style=for-the-badge)
-![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=111827)
-![TypeScript](https://img.shields.io/badge/TypeScript-6-3178c6?style=for-the-badge&logo=typescript&logoColor=white)
-![Vite](https://img.shields.io/badge/Vite-8-646cff?style=for-the-badge&logo=vite&logoColor=white)
-![Framer Motion](https://img.shields.io/badge/Framer_Motion-12-f472b6?style=for-the-badge)
-![OWASP LLM](https://img.shields.io/badge/OWASP_LLM-Top_10-f59e0b?style=for-the-badge)
-![License](https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge)
+<p align="center">
+  <img alt="Build" src="https://img.shields.io/badge/build-passing-34d399?style=for-the-badge" />
+  <img alt="React" src="https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react&logoColor=111827" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-6-3178c6?style=for-the-badge&logo=typescript&logoColor=white" />
+  <img alt="Vite" src="https://img.shields.io/badge/Vite-8-646cff?style=for-the-badge&logo=vite&logoColor=white" />
+  <img alt="Framer Motion" src="https://img.shields.io/badge/Framer_Motion-12-f472b6?style=for-the-badge" />
+  <img alt="OWASP LLM" src="https://img.shields.io/badge/OWASP_LLM-Top_10-f59e0b?style=for-the-badge" />
+  <img alt="License" src="https://img.shields.io/badge/License-MIT-22c55e?style=for-the-badge" />
+</p>
 
 **Open-source LLM and RAG red-team console for corpus scanning, live endpoint attack testing, CI/CD prompt security gates, and OWASP LLM risk reporting.**
 
