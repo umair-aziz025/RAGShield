@@ -17,12 +17,6 @@ RAGShield helps developers, AppSec teams, and AI red-teamers test chatbots, RAG 
 ### 🧭 Security Console
 ![RAGShield dashboard](docs/screenshots/dashboard.png)
 
-### ⚡ Live Prompt Campaign Lab
-![RAGShield live lab](docs/screenshots/live-lab.png)
-
-### 📱 Mobile Layout
-![RAGShield mobile layout](docs/screenshots/mobile.png)
-
 ## 🚨 Why It Matters
 
 - 🧨 Prompt injection can override assistant behavior and expose hidden instructions.
@@ -143,12 +137,6 @@ Create or edit `.ragshieldrc.json`:
 - 📈 Provider-specific score tuning
 - 🧪 Regression suite import/export
 - 🌐 Optional API mode for enterprise pipelines
-
-## 🏷️ Recommended GitHub Topics
-
-```text
-ai-security llm-security rag-security prompt-injection owasp-top-10 cybersecurity appsec red-team blue-team agent-security security-scanner react typescript
-```
 
 ## 🤝 Responsible Use
 
