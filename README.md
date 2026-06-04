@@ -19,6 +19,9 @@ RAGShield helps developers, AppSec teams, and AI red-teamers test chatbots, RAG 
 ### 🧭 Security Console
 ![RAGShield dashboard](docs/screenshots/dashboard.png)
 
+### 🧪 Payload Library
+![RAGShield payload library](docs/screenshots/payload-library.png)
+
 ## 🚨 Why It Matters
 
 - 🧨 Prompt injection can override assistant behavior and expose hidden instructions.
