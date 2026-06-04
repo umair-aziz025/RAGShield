@@ -8,7 +8,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "ci:scan": "node scripts/ragshield-ci.mjs"
   },
   "dependencies": {
     "framer-motion": "^12.40.0",

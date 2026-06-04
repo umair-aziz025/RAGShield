@@ -1,0 +1,6 @@
+{
+  "failOnCritical": true,
+  "maxRiskScore": 35,
+  "allowDemoSecrets": true,
+  "scanPaths": ["docs/**/*.md", "README.md"]
+}
